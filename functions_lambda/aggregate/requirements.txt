@@ -1,0 +1,8 @@
+boto3
+langchain_openai
+langchain 
+pydantic 
+pydantic-core 
+openai 
+langchain_qdrant
+qdrant-client

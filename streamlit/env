@@ -1,0 +1,5 @@
+BUCKET_NAME=your_bucket_name
+state_machine_arn=your_state_machine_arn
+API_KEY_qdrant=your_api_key
+URL_qdrant=your_qdrant_url
+OPENAI_API_KEY=your_openai_api_key

@@ -1,0 +1,8 @@
+Streamlit
+Pandas
+Boto3
+Langchain 
+langchain-core
+langchain-openai
+langchain-qdrant
+python-dotenv

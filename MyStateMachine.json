@@ -1,0 +1,275 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Images/textes et tableaux",
+  "States": {
+    "Images/textes et tableaux": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Extraction des images",
+          "States": {
+            "Extraction des images": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:extract_images:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Map:Résumer des images",
+              "ResultPath": null
+            },
+            "Map:Résumer des images": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "DISTRIBUTED",
+                  "ExecutionType": "STANDARD"
+                },
+                "StartAt": "Résumer des images",
+                "States": {
+                  "Résumer des images": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "OutputPath": "$.Payload",
+                    "Parameters": {
+                      "Payload": {
+                        "BUCKET_NAME.$": "$.BUCKET_NAME",
+                        "IMAGE_KEY.$": "$.Key",
+                        "OUTPUT_SUMMARIZES.$": "$.OUTPUT_SUMMARIZES"
+                      },
+                      "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:summarize_images:$LATEST"
+                    },
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "Lambda.ServiceException",
+                          "Lambda.AWSLambdaException",
+                          "Lambda.SdkClientException",
+                          "Lambda.TooManyRequestsException"
+                        ],
+                        "IntervalSeconds": 1,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "End": true
+                  }
+                }
+              },
+              "End": true,
+              "Label": "MapRésumerdesimages",
+              "MaxConcurrency": 100,
+              "ItemReader": {
+                "Resource": "arn:aws:states:::s3:listObjectsV2",
+                "Parameters": {
+                  "Bucket.$": "$.BUCKET_NAME",
+                  "Prefix.$": "$.OUTPUT_EXTRACT_IMAGES"
+                }
+              },
+              "ToleratedFailurePercentage": 100,
+              "ItemSelector": {
+                "BUCKET_NAME.$": "$.BUCKET_NAME",
+                "Key.$": "$$.Map.Item.Value.Key",
+                "OUTPUT_SUMMARIZES.$": "$.OUTPUT_SUMMARIZES"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Extraction des textes et des tableaux",
+          "States": {
+            "Extraction des textes et des tableaux": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:extract_text_table:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "textes /tableaux",
+              "ResultPath": null
+            },
+            "textes /tableaux": {
+              "Type": "Parallel",
+              "End": true,
+              "Branches": [
+                {
+                  "StartAt": "Map :Résumer des tableaux",
+                  "States": {
+                    "Map :Résumer des tableaux": {
+                      "Type": "Map",
+                      "ItemProcessor": {
+                        "ProcessorConfig": {
+                          "Mode": "DISTRIBUTED",
+                          "ExecutionType": "STANDARD"
+                        },
+                        "StartAt": "Résumer des tableaux",
+                        "States": {
+                          "Résumer des tableaux": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "OutputPath": "$.Payload",
+                            "Parameters": {
+                              "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:summarize_table:$LATEST",
+                              "Payload": {
+                                "BUCKET_NAME.$": "$.BUCKET_NAME",
+                                "KEY_FILE.$": "$.Key",
+                                "OUTPUT_SUMMARIZES.$": "$.OUTPUT_SUMMARIZES"
+                              }
+                            },
+                            "Retry": [
+                              {
+                                "ErrorEquals": [
+                                  "Lambda.ServiceException",
+                                  "Lambda.AWSLambdaException",
+                                  "Lambda.SdkClientException",
+                                  "Lambda.TooManyRequestsException"
+                                ],
+                                "IntervalSeconds": 1,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2
+                              }
+                            ],
+                            "End": true
+                          }
+                        }
+                      },
+                      "End": true,
+                      "Label": "MapRésumerdestableaux",
+                      "MaxConcurrency": 100,
+                      "ItemReader": {
+                        "Resource": "arn:aws:states:::s3:listObjectsV2",
+                        "Parameters": {
+                          "Bucket.$": "$.BUCKET_NAME",
+                          "Prefix.$": "$.OUTPUT_EXTRACT_TABLES"
+                        }
+                      },
+                      "ItemSelector": {
+                        "BUCKET_NAME.$": "$.BUCKET_NAME",
+                        "Key.$": "$$.Map.Item.Value.Key",
+                        "OUTPUT_SUMMARIZES.$": "$.OUTPUT_SUMMARIZES"
+                      }
+                    }
+                  }
+                },
+                {
+                  "StartAt": "Résumer des textes",
+                  "States": {
+                    "Résumer des textes": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "OutputPath": "$.Payload",
+                      "Parameters": {
+                        "Payload.$": "$",
+                        "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:summarize_texts:$LATEST"
+                      },
+                      "Retry": [
+                        {
+                          "ErrorEquals": [
+                            "Lambda.ServiceException",
+                            "Lambda.AWSLambdaException",
+                            "Lambda.SdkClientException",
+                            "Lambda.TooManyRequestsException"
+                          ],
+                          "IntervalSeconds": 1,
+                          "MaxAttempts": 3,
+                          "BackoffRate": 2
+                        }
+                      ],
+                      "End": true
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "Next": "Map",
+      "ResultPath": null
+    },
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "DISTRIBUTED",
+          "ExecutionType": "STANDARD"
+        },
+        "StartAt": "Vectorisation des fichiers et stockage dans Qdrant",
+        "States": {
+          "Vectorisation des fichiers et stockage dans Qdrant": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+              "FunctionName": "arn:aws:lambda:us-east-1:369206974268:function:aggregate_function:$LATEST",
+              "Payload": {
+                "FILES_KEYS.$": "$.Items[*].Key",
+                "BUCKET_NAME.$": "$.Items[0].BUCKET_NAME",
+                "COLLECTION_NAME.$": "$.Items[0].COLLECTION_NAME"
+              }
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "End": true
+          }
+        }
+      },
+      "End": true,
+      "Label": "Map",
+      "MaxConcurrency": 100,
+      "ItemReader": {
+        "Resource": "arn:aws:states:::s3:listObjectsV2",
+        "Parameters": {
+          "Bucket.$": "$.BUCKET_NAME",
+          "Prefix.$": "$.OUTPUT_SUMMARIZES"
+        }
+      },
+      "ToleratedFailurePercentage": 100,
+      "ItemBatcher": {
+        "MaxItemsPerBatch": 6
+      },
+      "ItemSelector": {
+        "Key.$": "$$.Map.Item.Value.Key",
+        "BUCKET_NAME.$": "$.BUCKET_NAME",
+        "COLLECTION_NAME.$": "$.COLLECTION_NAME"
+      }
+    }
+  }
+}
